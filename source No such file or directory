@@ -1,0 +1,11 @@
+shell脚本中
+source ./functions.sh
+提示./functions.sh No such file or directory。
+
+原因：
+source ./functions.sh是在当前目录，寻找文件functions.sh。而执行source命令的时候，可能当前目录并是不functions.sh所在的目录。所以会报错，No such file or directory。
+
+解决方法：
+1 定义base_dir变量。source的之后指定文件的绝对路径
+2 打印当前路径 echo $(pwd)
+  找出程序是在哪一步跳出了base_dir，然后纠正！
