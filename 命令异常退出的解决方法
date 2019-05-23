@@ -1,0 +1,120 @@
+# cat make_data.sh
+#!/bin/bash
+#code:utf-8
+
+# 创建目录
+function mkdir_kelai_data(){
+  mkdir -p /var/lib/kelai/filecheck
+  mkdir -p /var/lib/kelai/kelai_log
+}
+
+# 创建大文件
+function truncate_big_file(){
+  truncate -s 2G /filecheck
+  truncate -s 1G /kelai_log
+}
+
+# 寻找未被使用的loop device并返回......
+function find_unused_loop_device(){
+  avaliable_loop_device=""
+  for i in {1..7}
+  do
+    loop_device=/dev/loop${i}
+    # 判断loop_device是否可用
+    losetup ${loop_device} > /dev/null 2>&1
+    if [ $? -eq 0 ];then
+      #echo "${loop_device} is in use!"
+      continue
+    else
+      #echo "${loop_device} is not in use!"
+      avaliable_loop_device=${loop_device}
+      echo ${avaliable_loop_device}
+      break
+    fi
+  done
+}
+
+# 将文件与loop_device绑定
+function bind_file_and_loop_device(){
+  mount |grep /var/lib/kelai/$1 >/dev/null 2>&1
+  if [ $? -eq 0 ];then
+    echo "/var/lib/kelai/$1 has already mounted!"
+  else
+    loop_device=$(find_unused_loop_device)
+    losetup ${loop_device} /$1
+    mkfs -t ext4 -m 1 -v ${loop_device}
+    mount -t ext4 ${loop_device} /var/lib/kelai/$1 > /dev/null 2>&1
+    rm -rfv /var/lib/kelai/$1/lost+found
+  fi
+}
+
+# 生成模拟文件
+function generate_testing_file(){
+  timestr_1=$(date -d "now" +%Y-%m-%d)
+  timestr_2=$(date -d "yesterday" +%Y-%m-%d)
+  timestr_3=$(date -d "2 days ago" +%Y-%m-%d)
+  timestr_4=$(date -d "3 days ago" +%Y-%m-%d)
+  timestr_5=$(date -d "4 days ago" +%Y-%m-%d)
+  timestr_6=$(date -d "5 days ago" +%Y-%m-%d)
+  timestr_7=$(date -d "6 days ago" +%Y-%m-%d)
+  cd /var/lib/kelai/filecheck
+  for date in timestr_{1..7}
+  do
+    echo ${date}
+    datestr=`eval echo '$'"${date}"`
+    echo ${datestr}
+    truncate -s 1K Project.${datestr}.sdfha.af.afa.f.pcap
+  done
+
+  cd /var/lib/kelai/kelai_log
+  for dir in diagnosis dns email ftp global http_apache http_extend
+  do
+    mkdir -p /var/lib/kelai/kelai_log/log_${dir}
+    cd /var/lib/kelai/kelai_log/log_${dir}
+    for date in timestr_{1..7}
+    do
+      echo ${date}
+      datestr=`eval echo '$'"${date}"`
+      echo ${datestr}
+      truncate -s 1K ${dir}.${datestr}.06.44.06.160.log
+    done
+  done
+}
+
+#mkdir_kelai_data
+#truncate_big_file
+#find_unused_loop_device
+#bind_file_and_loop_device filecheck
+#bind_file_and_loop_device kelai_log
+#generate_testing_file
+
+将该文件中定义的bind_file_and_loop_device函数在别的shell脚本中调用执行时，异常退出，并未往下执行if/else分支。
+# 将文件与loop_device绑定
+function bind_file_and_loop_device(){
+  mount |grep /var/lib/kelai/$1 >/dev/null 2>&1
+  if [ $? -eq 0 ];then
+    echo "/var/lib/kelai/$1 has already mounted!"
+  else
+    loop_device=$(find_unused_loop_device)
+    losetup ${loop_device} /$1
+    mkfs -t ext4 -m 1 -v ${loop_device}
+    mount -t ext4 ${loop_device} /var/lib/kelai/$1 > /dev/null 2>&1
+    rm -rfv /var/lib/kelai/$1/lost+found
+  fi
+}
+
+解决方法：使用shell三目运算符解决这个问题
+function mount_loop_device(){
+  loop_device=$(find_unused_loop_device)
+  losetup ${loop_device} /$1
+  mkfs -t ext4 -m 1 -v ${loop_device}
+  mount -t ext4 ${loop_device} /var/lib/kelai/$1 > /dev/null 2>&1
+  rm -rfv /var/lib/kelai/$1/lost+found
+}
+
+# 将文件与loop_device绑定，使用if-else判断的时候mount|grep命令异常退出
+# 使用shell三目运算符解决这个问题
+function bind_file_and_loop_device(){
+  echo "将文件与loop_device绑定"
+  mount | grep /var/lib/kelai/$1 > /dev/null 2>&1 && echo "/var/lib/kelai/$1 has already mounted!" || mount_loop_device $1
+}
